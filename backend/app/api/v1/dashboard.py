@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -61,11 +62,13 @@ async def get_dashboard_summary(
         logger.exception("Revenue lookup failed for %s (tenant %s)", property_id, tenant_id)
         raise HTTPException(status_code=503, detail="Revenue data unavailable")
 
-    total_revenue_float = float(revenue_data['total'])
+    # Money stays an exact Decimal: sum first (done in SQL), round once to cents.
+    total_revenue = Decimal(revenue_data['total']).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
 
     return {
         "property_id": revenue_data['property_id'],
-        "total_revenue": total_revenue_float,
+        # Serialized as a string so no float ever touches the amount.
+        "total_revenue": str(total_revenue),
         "currency": revenue_data['currency'],
         "reservations_count": revenue_data['count']
     }
