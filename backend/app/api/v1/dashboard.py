@@ -1,7 +1,7 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.core.auth import authenticate_request as get_current_user
 from app.services.cache import get_revenue_summary
@@ -35,17 +35,26 @@ async def get_dashboard_properties(
 @router.get("/dashboard/summary")
 async def get_dashboard_summary(
     property_id: str,
+    month: Optional[int] = Query(None, ge=1, le=12),
+    year: Optional[int] = Query(None, ge=1970, le=2200),
     current_user=Depends(get_current_user),
 ) -> Dict[str, Any]:
     tenant_id = _require_tenant(current_user)
 
+    if (month is None) != (year is None):
+        raise HTTPException(status_code=422, detail="month and year must be provided together")
+
     try:
         # A property ID alone is not enough (prop-001 exists for several
         # tenants): it must belong to the tenant of the caller.
-        if await get_property(property_id, tenant_id) is None:
+        prop = await get_property(property_id, tenant_id)
+        if prop is None:
             raise HTTPException(status_code=404, detail="Property not found")
 
-        revenue_data = await get_revenue_summary(property_id, tenant_id)
+        # Month boundaries follow the property's own timezone.
+        revenue_data = await get_revenue_summary(
+            property_id, tenant_id, month, year, prop["timezone"]
+        )
     except HTTPException:
         raise
     except Exception:
