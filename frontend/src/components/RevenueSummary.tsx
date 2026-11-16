@@ -19,7 +19,9 @@ export const RevenueSummary: React.FC<RevenueSummaryProps> = ({ propertyId = 'pr
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    const activeTenant = debugTenant || 'candidate';
+    // The tenant is taken from the authenticated session on the server; the
+    // client never picks it. debugTenant is only sent when passed explicitly.
+    const activeTenant = debugTenant;
 
     useEffect(() => {
         const fetchRevenue = async () => {
@@ -28,7 +30,7 @@ export const RevenueSummary: React.FC<RevenueSummaryProps> = ({ propertyId = 'pr
                 // Use SecureAPI to handle authentication automatically
                 // We pass the simulatedTenant option which SecureAPI will attach as a header
                 const response = await SecureAPI.getDashboardSummary(propertyId, {
-                    simulatedTenant: activeTenant,
+                    ...(activeTenant ? { simulatedTenant: activeTenant } : {}),
                     timestamp: Date.now()
                 });
                 setData(response);

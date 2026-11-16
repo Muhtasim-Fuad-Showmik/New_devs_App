@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 from sqlalchemy import text
 
@@ -67,3 +67,44 @@ async def calculate_total_revenue(property_id: str, tenant_id: str) -> Dict[str,
         "currency": row.currency or "USD",
         "count": row.reservation_count,
     }
+
+
+async def get_property(property_id: str, tenant_id: str) -> Optional[Dict[str, Any]]:
+    """Return the property only if it belongs to the tenant, else None."""
+    if not db_pool.session_factory:
+        await db_pool.initialize()
+
+    async with db_pool.get_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT id, name, timezone
+                FROM properties
+                WHERE id = :property_id AND tenant_id = :tenant_id
+            """),
+            {"property_id": property_id, "tenant_id": tenant_id},
+        )
+        row = result.fetchone()
+
+    if not row:
+        return None
+    return {"id": row.id, "name": row.name, "timezone": row.timezone}
+
+
+async def list_properties(tenant_id: str) -> List[Dict[str, Any]]:
+    """All properties owned by the tenant."""
+    if not db_pool.session_factory:
+        await db_pool.initialize()
+
+    async with db_pool.get_session() as session:
+        result = await session.execute(
+            text("""
+                SELECT id, name, timezone
+                FROM properties
+                WHERE tenant_id = :tenant_id
+                ORDER BY id
+            """),
+            {"tenant_id": tenant_id},
+        )
+        rows = result.fetchall()
+
+    return [{"id": r.id, "name": r.name, "timezone": r.timezone} for r in rows]
