@@ -1,0 +1,7 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Local tooling (Claude Code / Headroom / Serena)
+.claude/.headroom_*
+.serena/
